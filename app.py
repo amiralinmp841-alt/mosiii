@@ -116,7 +116,10 @@ def next_message_id(db: Dict[str, Any]) -> int:
 
 def main_keyboard():
     return ReplyKeyboardMarkup(
-        [[KeyboardButton("🔗 لینک ناشناس من")]],
+        [
+            [KeyboardButton("🔗 لینک ناشناس من")],
+            [KeyboardButton("⚙️ تنظیمات"), KeyboardButton("💟 ارسال بدون لینک")],
+        ],
         resize_keyboard=True,
     )
 
@@ -249,6 +252,14 @@ async def text_message_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     if text == "🔗 لینک ناشناس من":
         await my_link_handler(update, context)
+        return
+
+    if text == "⚙️ تنظیمات":
+        await update.message.reply_text("خطا! بخش تنظیمات در دسترس نیست", reply_markup=main_keyboard())
+        return
+    
+    if text == "💟 ارسال بدون لینک":
+        await update.message.reply_text("خطا! این بخش، غیرفعال شده‌است.")
         return
 
     if context.user_data.get("awaiting_anonymous_message") and context.user_data.get("target_user_id"):
