@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: harfchatbot
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:flask_app"
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: BOT_USERNAME
+        value: HarfChatBot
+      - key: WEBHOOK_URL
+        sync: false
+      - key: LOG_CHAT_ID
+        sync: false
+      - key: ADMIN_ID
+        sync: false
+      - key: PORT
+        value: 10000
