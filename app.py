@@ -25,7 +25,7 @@ from telegram.ext import (
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN")
 BOT_USERNAME = os.getenv("BOT_USERNAME", "HarfChatBot")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://your-render-service.onrender.com")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://your-render-service.onrender.com").rstrip("/")
 PORT = int(os.getenv("PORT", "10000"))
 LOG_CHAT_ID = int(os.getenv("LOG_CHAT_ID", "-1001234567890"))
 ADMIN_ID = int(os.getenv("ADMIN_ID", "123456789"))
@@ -423,8 +423,22 @@ telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_me
 
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
-loop.run_until_complete(telegram_app.initialize())
-loop.run_until_complete(telegram_app.start())
+
+
+async def setup_telegram():
+    await telegram_app.initialize()
+    await telegram_app.start()
+
+    webhook_url = f"{WEBHOOK_URL}/webhook"
+    await telegram_app.bot.delete_webhook(drop_pending_updates=False)
+    await telegram_app.bot.set_webhook(url=webhook_url)
+
+    info = await telegram_app.bot.get_webhook_info()
+    logger.info("Webhook set to %s", webhook_url)
+    logger.info("Webhook info: %s", info.to_dict())
+
+
+loop.run_until_complete(setup_telegram())
 
 
 @app.get("/")
@@ -432,23 +446,32 @@ def home():
     return jsonify({"status": "ok", "service": "HarfChatBot"}), 200
 
 
+@app.get("/webhook_info")
+def webhook_info():
+    info = loop.run_until_complete(telegram_app.bot.get_webhook_info())
+    return jsonify(info.to_dict()), 200
+
+
 @app.get("/set_webhook")
 def set_webhook():
     webhook_url = f"{WEBHOOK_URL}/webhook"
-    loop.run_until_complete(telegram_app.bot.set_webhook(url=webhook_url))
-    return jsonify({"ok": True, "webhook": webhook_url})
+    result = loop.run_until_complete(telegram_app.bot.set_webhook(url=webhook_url))
+    return jsonify({"ok": result, "webhook": webhook_url}), 200
 
 
 @app.post("/webhook")
 def webhook():
     try:
-        data = request.get_json(force=True)
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({"ok": False, "error": "No JSON payload"}), 400
+
         update = Update.de_json(data, telegram_app.bot)
         loop.run_until_complete(telegram_app.process_update(update))
-        return "OK", 200
+        return jsonify({"ok": True}), 200
     except Exception as e:
         logger.exception("Webhook error: %s", e)
-        return "ERROR", 500
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 if __name__ == "__main__":
